@@ -31,7 +31,7 @@
 │   ├── phase1.md                       <- 各阶段文档
 │   ├── phase2.md
 │   ├── phase3.md
-│   ├── SysYF语言定义.pdf
+│   ├── SysYF--语言定义.pdf
 |   └── SysYFIR.md                      <- SysYF IR 应用编程接口相关文档
 ├── report
 │   ├── report.md                       <- 需提交的实验报告
