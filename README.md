@@ -25,17 +25,17 @@
 ``` log
 .
 ├── CMakeLists.txt
-├── README.md                           <- PW6实验文档说明（你在这里）
+├── README.md                           <- 实验文档说明（你在这里）
 ├── doc
 │   ├── AST.md
 │   ├── phase1.md                       <- 各阶段文档
 │   ├── phase2.md
 │   ├── phase3.md
 │   ├── SysYF语言定义.pdf
-|   └── SysYFIR.md                      <- SysYF IR 相关文档
+|   └── SysYFIR.md                      <- SysYF IR 应用编程接口相关文档
 ├── report
-│   ├── report.md                       <- PW6所需提交的实验报告
-│   └── contribution.md                 <- PW6所需提交的组员贡献（队长负责填写）
+│   ├── report.md                       <- 需提交的实验报告
+│   └── contribution.md                 <- 需提交的组员贡献（队长负责填写）
 ├── include                             <- 实验所需的头文件
 │   ├── ...
 │   └── SysYFIR
@@ -44,11 +44,11 @@
 │   ├── SysYFIR
 │   └── SysYFIRBuilder
 |       ├── CMakeLists.txt
-|       └── IRBuilder.cpp               <- 第三部分你需要修改的文件
+|       └── IRBuilder.cpp               <- 你需要在第三关任务中修改的文件
 └── Student
     ├── CMakeLists.txt
-    ├── task1
-    |   ├── ll                          <- PW6所需提交的.ll目录（第一部分）
+    ├── task1						   <- 第一关任务相关的目录
+    |   ├── ll                          <- 需提交的LLVM IR文件(.ll)的目录（第一关）
     |   |   ├── assign_hand.ll
     |   │   ├── fun_hand.ll
     |   │   ├── if_hand.ll
@@ -60,8 +60,8 @@
     |   │   └── while_test.sy
     |   └── demo
     |       └── go_upstairs.c
-    ├── task2
-    |   ├── cpp                         <- PW6所需提交的.cpp目录（第二部分）
+    ├── task2						   <- 第二关任务相关的目录
+    |   ├── cpp                         <- 需提交的.cpp目录（第二关）
     |   |   ├── CMakeLists.txt
     |   |   ├── assign_gen.cpp
     |   │   ├── fun_gen.cpp
@@ -75,10 +75,10 @@
     |   └── demo
     |       |── CMakeLists.txt
     |       |── go_upstairs.sy
-    |       └── go_upstairs_gen.cpp     <- 助教提供的打印go_upstairs.ll的cpp
+    |       └── go_upstairs_gen.cpp     <- 打印go_upstairs.ll的cpp文件
     └── task3
         └── test
-            ├── test.py                 <- PW6第三部分评测脚本
+            ├── test.py                 <- 第三关任务的评测脚本
             └── test                    <- 测试样例文件夹
 ```
 
