@@ -102,7 +102,7 @@
 该C++程序会生成与go_upstairs.c逻辑相同的LLVM IR文件，在该C++程序中提供了详尽的注释，请阅读理解，以便更好地开展你的实验！  
 
 ### 本关具体任务
-1. 你需要在`Student/task2/cpp/`文件夹中，调用SysYF IR应用编程接口，编写自己的`assign_gen.cpp`，`func_gen.cpp`，`if_gen.cpp`，`while_gen.cpp`程序，以生成与第1关的四个sy 程序相同逻辑功能的ll文件。
+1. 你需要在`Student/task2/cpp/`文件夹中，调用SysYF IR应用编程接口，编写自己的 `assign_gen.cpp`，`func_gen.cpp`，`if_gen.cpp`，`while_gen.cpp`程序，以生成与第1关的四个sy 程序相同逻辑功能的ll文件。
 2. 在`report.md`内回答[思考题](#思考题)
 
 ### 编译、运行和验证
@@ -113,8 +113,8 @@
 cmake ..
 make
 ```
-你可以得到对应`assign_gen.cpp`，`func_gen.cpp`，`if_gen.cpp`，`while_gen.cpp`，`go_upstairs_gen.cpp`的可执行文件`assign_generator`，`func_generator`，`if_generator`，`while_generator`，`go_upstairs_generator`。  
-之后直接执行可执行文件，即可得到对应ll文件：  
+你可以得到对应 `assign_gen.cpp`，`func_gen.cpp`，`if_gen.cpp`，`while_gen.cpp`，`go_upstairs_gen.cpp`的可执行文件`assign_generator`，`func_generator`，`if_generator`，`while_generator`，`go_upstairs_generator`。  
+之后直接执行可执行文件，即可得到对应的ll文件：  
 ``` shell
 # 在build文件夹内
 ./go_upstairs_generator
