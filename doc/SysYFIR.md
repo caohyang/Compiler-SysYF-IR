@@ -32,7 +32,7 @@
     - [Constant](#constant)
     - [Function](#function)
     - [GlobalVariable](#globalvariable)
-    - [IRBuilder](#irbuilder)
+    - [IRStmtBuilder](#irstmtbuilder)
     - [Instruction](#instruction-1)
     - [Module](#module)
     - [Type](#type)
@@ -259,7 +259,7 @@
 
 ### 核心类概念图
 
-to make
+![](figs/核心类概念图.png)
 
 ### BasicBlock
 - 继承：从[value](#value)继承
