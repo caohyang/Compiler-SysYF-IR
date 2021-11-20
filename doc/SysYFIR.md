@@ -43,10 +43,10 @@
 ## IR
 
 ### IR Features
-- 采用 3 地址的方式 
+- 采用类型化三地址代码的方式 
   - 区别于 X86 汇编的目标和源寄存器共用的模式： ADD EAX, EBX 
   - %2 = add i32 %0, %1
-- SSA 形式 + 无限寄存器
+- 静态单赋值 (SSA) 形式 + 无限寄存器
   - 每个变量都只被赋值一次 
   - 容易确定操作间的依赖关系，便于优化分析
 - 强类型系统
@@ -61,8 +61,8 @@
     - `functiontype`函数类型，包括函数返回值类型与参数类型（下述文档未提及）
 
 ### IR Format
-以下面的`easy.c`与`easy.ll`为例进行说明。  
-通过命令`clang -S -emit-llvm easy.c`可以得到对应的`easy.ll`如下（助教增加了额外的注释）。`.ll`文件中注释以`;`开头。  
+下面以`easy.c`与`easy.ll`为例进行说明。  
+通过命令`clang -S -emit-llvm easy.c`可以得到对应的`easy.ll`如下（其中增加了额外的注释）。`.ll`文件中注释以`;`开头。  
 
 - `easy.c`: 
   ``` c
@@ -125,7 +125,7 @@
   !0 = !{i32 1, !"wchar_size", i32 4}
   !1 = !{!"clang version 10.0.1 "}
   ```
-其中，每个program由1个或多个module组成，module之间由LLVM Linker合并。  
+每个program由1个或多个module组成，每个module对应1个程序文件，module之间由LLVM Linker进行链接形成1个可执行文件或者库。  
 每个module组成如下：
 - Target Information：
   ``` c
@@ -136,9 +136,9 @@
 - Others:尾部其他信息  
 
 每个函数的组成如下：
-- 头部：函数返回值类型，函数名，函数参数
+- 头部：函数返回值类型、函数名、函数参数
 - 一个或多个基本块：
-  - 每个基本块又有Label和Instruction组成。
+  - 每个基本块由Label和Instruction组成。
     ``` c
     8:                                                ; preds = %7, %0
       %9 = load i32, i32* %2, align 4
@@ -150,7 +150,7 @@
     `%9 = load i32, i32* %2, align 4`中的`%9`是目的操作数，`load`是指令助记符，`i32`是`int32`的类型，`i32*`是指向`int32`的地址类型，`%2`是源操作数，`align 4`表示对齐。
 ### Instruction
 #### Terminator Instructions
-**注**：ret与br都是Terminator Instructions也就是终止指令，在llvm基本块的定义里，基本块是单进单出的，因此只能有一条终止指令（ret或br）。当一个基本块有两条终止指令，clang 在做解析会认为第一个终结指令是此基本块的结束，并会开启一个新的匿名的基本块（并占用了下一个编号）。
+**注**：ret与br都是Terminator Instructions也就是终止指令，在llvm基本块的定义里，基本块是单进单出的，因此只能有一条终止指令（ret或br）。当一个基本块有两条终止指令，clang 在做解析时会认为第一个终结指令是此基本块的结束，并会开启一个新的匿名的基本块（并占用了下一个编号）。
 ##### Ret 
 - 格式
   - `ret <type> <value>`
@@ -201,7 +201,7 @@
 - 例子：
   - `%ptr = alloca i32`	
   - `%ptr = alloca [10 x i32]`
-- 概念： `alloca`指令在当前执行函数的堆栈帧上分配内存，当该函数返回其调用者时将自动释放该内存。 始终在地址空间中为数据布局中指示的分配资源分配对象
+- 概念： `alloca`指令在当前执行函数的栈帧上分配内存，当该函数返回其调用者时将自动释放该内存。 始终在地址空间中为数据布局中指示的分配资源分配对象
 
 ##### Load
 - 格式：`<result> = load <type>, <type>* <pointer>`
@@ -275,31 +275,31 @@ to make
 - API: 
 
   ```c++
-  static BasicBlock *create(Module *m, const std::string &name , Function *parent )
   // 创建并返回BB块，参数分别是BB块所属的Module，name是其名字默认为空，BB块所属的Function
-  Function *get_parent();
+  static BasicBlock *create(Module *m, const std::string &name , Function *parent )
   // 返回BB块所属的函数
-  Module *get_module();
+  Function *get_parent();
   // 返回BB块所属的Module
+  Module *get_module();
+  // 返回BB块的终止指令(ret|br)，若BB块最后一条指令不是终止指令返回null
   Instruction *get_terminator();
-  // 返回BB块的终止指令(ret|br)若BB块最后一条指令不是终止指令返回null
-  void add_instruction(Instruction *instr);
   // 将instr指令添加到此BB块指令链表结尾，调用IRBuilder里来创建函数会自动调用此方法
-  void add_instr_begin(Instruction *instr);
+  void add_instruction(Instruction *instr);
   // 将instr指令添加到此BB块指令链表开头
+  void add_instr_begin(Instruction *instr);
+  // 将instr指令从BB块指令链表中移除，同时调用api维护好instr的操作数的use链表
   void delete_instr(Instruction *instr);
-  // 将instr指令从BB块指令链表中移除，同时调用api维护好instr的操作数的use链表。
+  // BB块中指令数为空返回true
   bool empty();
-  // BB块中为空返回true
-  int get_num_of_instr();
   // 返回BB块中指令的数目
-  std::list<Instruction *> &get_instructions();
+  int get_num_of_instr();
   //返回BB块的指令链表
-  void erase_from_parent();
+  std::list<Instruction *> &get_instructions();
   // 将此BB块从所属函数的bb链表中移除
+  void erase_from_parent();
       
   /****************api about cfg****************/
-  std::list<BasicBlock *> &get_pre_basic_blocks() // 返回前驱快集合
+  std::list<BasicBlock *> &get_pre_basic_blocks() // 返回前驱块集合
   std::list<BasicBlock *> &get_succ_basic_blocks() // 返回后继块集合
   void add_pre_basic_block(BasicBlock *bb) // 添加前驱块
   void add_succ_basic_block(BasicBlock *bb) // 添加后继块
@@ -314,14 +314,14 @@ to make
 - 继承：从[User](#user)继承
 - 含义：常数，各种类型常量的基类
 - 子类：
-  - ConstantInt：
+  - ConstantInt
     - 含义：int类型的常数
     
-    - 成员：
+    - 成员
       
       - val_：常数值
       
-    - API：
+    - API
     
       ```cpp
       int get_value() // 返回该常数类型中存的常数值
@@ -330,25 +330,25 @@ to make
       static ConstantInt *get(bool val, Module *m) // 以val值来创建bool常数类
       ```
     
-  - ConstantFP:
+  - ConstantFP
     - 含义：float类型的常数
     
-    - 成员：
+    - 成员
       
       - val_：常数值
       
-    - API：
+    - API
     
       ```cpp
       static ConstantFP *get(float val, Module *m) // 以val值创建并返回浮点数常量类
       float get_value() // 返回该常数类型中存的常数值
       ```
     
-  - ConstantZero：
+  - ConstantZero
     
     - 含义：用于全局变量初始化的常量0值。
     
-    - API：
+    - API
     
       ```cpp
       static ConstantZero *get(Type *ty, Module *m);// 创建并返回ConstantZero常量类
@@ -357,7 +357,7 @@ to make
   - ConstantArray
 
     - 含义：数组类型的常数
-    - 成员：
+    - 成员
         - const_array_：数组常量值
 
     - API：cminus语法不需要数组常量的支持（本次实验不需要用到），在此不过多解释。感兴趣可以自行查看源代码。
@@ -366,16 +366,16 @@ to make
 
 - 含义：函数，该类描述 LLVM 的一个简单过程，维护基本块表，格式化参数表
 
-- 成员：
+- 成员
   - basic_blocks_：基本块列表
   - arguments_：形参列表
   - parent_：函数属于的module
   
-- API：
+- API
 
   ```cpp
   static Function *create(FunctionType *ty, const std::string &name, Module *parent);
-  // 创建并返回Function，参数依次是待创建函数类型ty，函数名字name(不可为空)，函数所属的Module
+  // 创建并返回Function，参数依次是待创建函数类型ty、函数名字name(不可为空)、函数所属的Module
   FunctionType *get_function_type() const;
   // 返回此函数类的函数类型
   Type *get_return_type() const;
@@ -404,11 +404,11 @@ to make
 
   
 
-- 相关类：
-  - Argument：
+- 相关类
+  - Argument
     - 含义：参数
     
-    - 成员：
+    - 成员
       - arg_no_：参数序号
       - parent_：参数属于哪个函数
       
@@ -425,40 +425,40 @@ to make
   - is_const：是否为常量
   - init_val_：初始值
 - API：由于cminusf语义要求所有的全局变量都默认初始化为0，故`GlobalVariable`中成员和API再构造CminusFBuilder用不到
-### IRBuilder
+### IRStmtBuilder
 - 含义：生成IR的辅助类，该类提供了独立的接口创建各种 IR 指令，并将它们插入基本块中, 该辅助类不做任何类型检查。
 
-- API：
+- API
 
   ```cpp
   BasicBlock *get_insert_block()// 返回正在插入指令的BB
   void set_insert_point(BasicBlock *bb)// 设置当前需要插入指令的bb
-  Instruction *create_[instr_type]()// 创建instr_type(具体名字参考IRBuilder.h代码)的指令并对应插入到正在插入的BB块，这种类型的指令看函数名字和参数名字和IR文档是一一对应的。
+  XXXInst *create_[instr_type]()// 创建instr_type(具体名字参考IRStmtBuilder.h代码)的指令并对应插入到正在插入的BB块，这种类型的指令看函数名字和参数名字和IR文档是一一对应的。
   ```
 
   
 ### Instruction
 - 继承：从[User](#user)继承
 - 含义：指令，该类是所有 LLVM 指令的基类，主要维护指令的操作码（指令类别），指令所属的基本块，指令的操作数个数信息
-- 成员：
+- 成员
   - parent_：指令所属的BasicBlock
   - op_id_：指令的类型id
   - num_ops_指令的操作数个数
-- 子类：
+- 子类
   - BinaryInst：双目运算指令包括add、sub、mul、div
   - 其他子类和前述文档中提到的指令一一对应，不在此赘述。
-- API：所有指令的创建都要通过IRBuilder进行，不需要关注Instruction类的实现细节，（**注**：不通过IRBuilder来创建指令，而直接调用指令子类的创建方法未经助教完善的测试）
+- API：所有指令的创建都要通过 IRStmtBuilder 进行，不需要关注Instruction类的实现细节，（**注**：不通过 IRStmtBuilder 来创建指令，而直接调用指令子类的创建方法未经助教完善的测试）
 ### Module
 - 含义：一个编译单元，在此源语言的意义下是一个文件
 
-- 成员：
+- 成员
   - function_list_：函数链表，记录了这个编译单元的所有函数
   - global_list_：全局变量链表
   - instr_id2string_：通过指令类型id得到其打印的string
   - module_name_, source_file_name：未使用
   - 从module中能取到的基本类型
   
-- API：
+- API
 
   ```cpp
   Type *get_void_type(); 
@@ -479,19 +479,19 @@ to make
 ### Type
 - 含义：IR的类型，该类是所有类型的超类
 
-- 成员：
+- 成员
   
   - tid_：枚举类型，表示type的类型（包含VoidType、LabelType、FloatType、Int1、Int32、ArrayType、PointerType）
   
-- 子类：
+- 子类
   - IntegerType
     - 含义：int 类型
     
-    - 成员：
+    - 成员
       
       - num_bits：长度（i1或者i32）
       
-    - API：
+    - API
     
       ```cpp
       unsigned get_num_bits();// 返回int的位数
@@ -502,11 +502,11 @@ to make
   - FunctionType
     - 含义：函数类型
     
-    - 成员：
+    - 成员
       - result_：返回值类型
       - args_：参数类型列表
       
-    - API：
+    - API
     
       ```cpp
       static FunctionType *get(Type *result, std::vector<Type*> params);
@@ -525,11 +525,11 @@ to make
   - ArrayType
     - 含义：数组类型
     
-    - 成员：
+    - 成员
       - contained_：数组成员的类型
       - num_elements_：数组维数
       
-    - API：
+    - API
     
       ```cpp
       static ArrayType *get(Type *contained, unsigned num_elements)
@@ -542,11 +542,11 @@ to make
   - PointerType
     - 含义：指针类型
     
-    - 成员：
+    - 成员
       
       - contained_：指针指向的类型
       
-    - API：
+    - API
     
       ```cpp
       Type *get_element_type() const { return contained_; }
@@ -557,7 +557,7 @@ to make
       // 对于pointertype而言返回指针指向的类型，其他则返回nullptr
       ```
   
-- API:
+- API
 
   ```cpp
   bool is_void_type()// 判断是否是void类型其他类型有类似API请查看Type.h
@@ -572,11 +572,11 @@ to make
 
 - 含义：使用者，提供一个操作数表，表中每个操作数都直接指向一个 Value, 提供了 use-def 信息，它本身是 Value 的子类， Value 类会维护一个该数据使用者的列表，提供def-use信息。简单来说操作数表表示我用了谁，该数据使用者列表表示谁用了我。这两个表在后续的**优化实验**会比较重要请务必理解。
 
-- 成员：
+- 成员
   - operands_：参数列表，表示这个使用者所用到的参数
   - num_ops_：表示该使用者使用的参数的个数
   
-- API：
+- API
 
   ```cpp
   Value *get_operand(unsigned i) const;
@@ -593,18 +593,15 @@ to make
   // 移除操作数链表中索引为index1-index2的操作数，例如想删除第0个操作数：remove_operands(0,0)
   ```
 
-
-
-
 ### Value 
 - 含义：最基础的类，代表一个操作数，代表一个可能用于指令操作数的带类型数据
 
-- 成员：
+- 成员
   - use_list_：记录了所有使用该操作数的指令的列表
   - name_：名字
   - type_：类型，一个type类，表示操作数的类型
   
-- API：
+- API
 
   ```cpp
   Type *get_type() const //返回这个操作数的类型
@@ -617,8 +614,6 @@ to make
   // 将val从this的use_list_中移除
   ```
 
-
-
 ### 总结
 
-助教在接口文档里筛选了可能会需要用到的接口，如果对API有问题的请移步issue讨论，本次`SysYF IR`接口由助教自行设计实现，并做了大量测试，如有对助教的实现方法有异议或者建议的也请移步issue讨论，**请不要直接修改助教的代码，若因修改助教代码造成后续实验仓库合并的冲突请自行解决**。
+在本文档里提供了为SysYF语言程序生成LLVM IR可能需要用到的SysYF IR应用编程接口，如果对这些API有问题的请移步issue讨论，本次`SysYF IR`应用编程接口由助教自行设计实现，并做了大量测试，如有对助教的实现方法有异议或者建议的也请移步issue讨论，**请不要直接修改助教的代码，若因修改助教代码造成后续实验仓库合并的冲突请自行解决**。
