@@ -46,7 +46,6 @@
 |       ├── CMakeLists.txt
 |       └── IRBuilder.cpp               <- 你需要在第三关任务中修改的文件
 └── Student
-    ├── CMakeLists.txt
     ├── task1						   <- 第一关任务相关的目录
     |   ├── ll                          <- 需提交的LLVM IR文件(.ll)的目录（第一关）
     |   |   ├── assign_hand.ll
@@ -61,6 +60,7 @@
     |   └── demo
     |       └── go_upstairs.c
     ├── task2						   <- 第二关任务相关的目录
+    ├── CMakeLists.txt
     |   ├── cpp                         <- 需提交的.cpp目录（第二关）
     |   |   ├── CMakeLists.txt
     |   |   ├── assign_gen.cpp
