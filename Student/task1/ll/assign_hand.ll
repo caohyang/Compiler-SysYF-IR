@@ -13,17 +13,17 @@ define dso_local i32 @main() #0 {
 
     %4 = getelementptr inbounds [2 x i32], [2 x i32]* %3, i32 0, i32 0
     store i32 2, i32* %4, align 4       ; a[0]=2
-    %5 = getelementptr inbounds [2 x i32], [2 x i32]* %3, i32 0, i32 1
-    store i32 0, i32* %4, align 4       ; a[1]=0
 
-    %6 = load i32, i32* %4, align 4
-    %7 = sitofp i32 %6 to float         ; a[0]:i32->float
-    %8 = load float, float* %2, align 4
-    %9 = fmul float %7, %8              ; a[0]*b
-    %10 = fptosi float %9 to i32        ; a[0]*b:float->i32
-    %11 = getelementptr inbounds [2 x i32], [2 x i32]* %3, i32 0, i32 1
-    store i32 %10, i32* %11, align 4    ; a[1]=a[0]*b
-    ret i32 %11                         ; return with %11
+    %5 = load i32, i32* %4, align 4
+    %6 = sitofp i32 %5 to float         ; a[0]:i32->float
+    %7 = load float, float* %2, align 4
+    %8 = fmul float %6, %7              ; a[0]*b
+    %9 = fptosi float %8 to i32         ; a[0]*b:float->i32
+    %10 = getelementptr inbounds [2 x i32], [2 x i32]* %3, i32 0, i32 1
+    store i32 %9, i32* %10, align 4    ; a[1]=a[0]*b
+    %11 = getelementptr inbounds [2 x i32], [2 x i32]* %3, i64 0, i64 1
+    %12 = load i32, i32* %11, align 4
+    ret i32 %12                         ; return a[1]
 }
 
 attributes #0 = { noinline nounwind optnone uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "frame-pointer"="all" "less-precise-fpmad"="false" "min-legal-vector-width"="0" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
