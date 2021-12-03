@@ -166,21 +166,186 @@ void IRBuilder::visit(SyntaxTree::ReturnStmt &node) {
   }
 }
 
-void IRBuilder::visit(SyntaxTree::BlockStmt &node) {}
+void IRBuilder::visit(SyntaxTree::BlockStmt &node) { //@cyy
+  bool need_exit_scope = !pre_enter_scope;
+  if (pre_enter_scope) 
+    pre_enter_scope = false;
+  else 
+    scope.enter();
+  for (auto &decl : node.body) {
+    decl->accept(*this);
+    if (builder->get_insert_block()->get_terminator() != nullptr)
+      break;
+  }
+  if (need_exit_scope) {
+    scope.exit();
+  }
+}
 
-void IRBuilder::visit(SyntaxTree::EmptyStmt &node) {}
+void IRBuilder::visit(SyntaxTree::EmptyStmt &node) { tmp_val = nullptr; } //@cyy
 
-void IRBuilder::visit(SyntaxTree::ExprStmt &node) {}
+void IRBuilder::visit(SyntaxTree::ExprStmt &node) { node.exp->accept(*this); } //@cyy
 
-void IRBuilder::visit(SyntaxTree::UnaryCondExpr &node) {}
+void IRBuilder::visit(SyntaxTree::UnaryCondExpr &node) { //@cyy
+  if (node.op == SyntaxTree::UnaryCondOp::NOT) {
+    node.rhs->accept(*this);
+    auto r_val = tmp_val;
+    tmp_val = builder->create_icmp_eq(r_val, CONST_INT(0));
+  }
+}
 
-void IRBuilder::visit(SyntaxTree::BinaryCondExpr &node) {}
+void IRBuilder::visit(SyntaxTree::BinaryCondExpr &node) { //@cyy
+  CmpInst *cond_val;
+  if (node.op == SyntaxTree::BinaryCondOp::LAND) {
+    auto trueBB = BasicBlock::create(module.get(), "", cur_fun);
+    IF_While_And_Cond_Stack.push_back({trueBB, IF_While_Or_Cond_Stack.back().falseBB});
+    node.lhs->accept(*this);
+    IF_While_And_Cond_Stack.pop_back();
+    auto ret_val = tmp_val;
+    cond_val = dynamic_cast<CmpInst *>(ret_val);
+    if (cond_val == nullptr) {
+      cond_val = builder->create_icmp_ne(tmp_val, CONST_INT(0));
+    }
+    builder->create_cond_br(cond_val, trueBB, IF_While_Or_Cond_Stack.back().falseBB);
+    builder->set_insert_point(trueBB);
+    node.rhs->accept(*this);
+  }
+  else if (node.op == SyntaxTree::BinaryCondOp::LOR) {
+    auto falseBB = BasicBlock::create(module.get(), "", cur_fun);
+    IF_While_Or_Cond_Stack.push_back({IF_While_Or_Cond_Stack.back().trueBB, falseBB});
+    node.lhs->accept(*this);
+    IF_While_Or_Cond_Stack.pop_back();
+    auto ret_val = tmp_val;
+    cond_val = dynamic_cast<CmpInst *>(ret_val);
+    if (cond_val == nullptr) {
+      cond_val = builder->create_icmp_ne(tmp_val, CONST_INT(0));
+    }
+    builder->create_cond_br(cond_val, IF_While_Or_Cond_Stack.back().trueBB, falseBB);
+    builder->set_insert_point(falseBB);
+    node.rhs->accept(*this);
+  }
+  else {
+    node.lhs->accept(*this);
+    auto l_val = tmp_val;
+    node.rhs->accept(*this);
+    auto r_val = tmp_val;
+    bool is_int = type_cast(builder, &l_val, &r_val);
+    Value *cmp;
+    switch (node.op) {
+      case SyntaxTree::BinaryCondOp::LT:
+        if (is_int)
+          cmp = builder->create_icmp_lt(l_val, r_val);
+        else  
+          cmp = builder->create_fcmp_lt(l_val, r_val);
+        break;
+      case SyntaxTree::BinaryCondOp::LTE:
+        if (is_int)
+          cmp = builder->create_icmp_le(l_val, r_val);
+        else  
+          cmp = builder->create_fcmp_le(l_val, r_val);
+        break;
+      case SyntaxTree::BinaryCondOp::GTE:
+        if (is_int)
+          cmp = builder->create_icmp_ge(l_val, r_val);
+        else  
+          cmp = builder->create_fcmp_ge(l_val, r_val);
+        break;
+      case SyntaxTree::BinaryCondOp::GT:
+        if (is_int)
+          cmp = builder->create_icmp_gt(l_val, r_val);
+        else  
+          cmp = builder->create_fcmp_gt(l_val, r_val);
+        break;
+      case SyntaxTree::BinaryCondOp::EQ:
+        if (is_int)
+          cmp = builder->create_icmp_eq(l_val, r_val);
+        else  
+          cmp = builder->create_fcmp_eq(l_val, r_val);
+        break;
+      case SyntaxTree::BinaryCondOp::NEQ:
+        if (is_int)
+          cmp = builder->create_icmp_ne(l_val, r_val);
+        else  
+          cmp = builder->create_fcmp_ne(l_val, r_val);
+        break;
+      default: break;
+    }
+    tmp_val = builder->create_zext(cmp, INT32_T);
+  }
+}
 
-void IRBuilder::visit(SyntaxTree::BinaryExpr &node) {}
+void IRBuilder::visit(SyntaxTree::BinaryExpr &node) { //@cyy
+  if (node.rhs == nullptr) 
+    node.lhs->accept(*this);
+  else {
+    node.lhs->accept(*this);
+    auto l_val = tmp_val;
+    node.rhs->accept(*this);
+    auto r_val = tmp_val;
+    bool is_int = type_cast(builder, &l_val, &r_val);
+    switch (node.op) {
+    case SyntaxTree::BinOp::PLUS:
+      if (is_int)
+          tmp_val = builder->create_iadd(l_val, r_val);
+      else
+          tmp_val = builder->create_fadd(l_val, r_val);
+      break;
+    case SyntaxTree::BinOp::MINUS:
+      if (is_int)
+          tmp_val = builder->create_isub(l_val, r_val);
+      else
+          tmp_val = builder->create_fsub(l_val, r_val);
+      break;
+    }
+    case SyntaxTree::BinOp::MULTIPLY:
+      if (is_int)
+          tmp_val = builder->create_imul(l_val, r_val);
+      else
+          tmp_val = builder->create_fmul(l_val, r_val);
+      break;
+    }
+    case SyntaxTree::BinOp::DIVIDE:
+      if (is_int)
+          tmp_val = builder->create_isdiv(l_val, r_val);
+      else
+          tmp_val = builder->create_fdiv(l_val, r_val);
+      break;
+    }
+    case SyntaxTree::BinOp::MODULO:
+      tmp_val = builder->create_isrem(l_val, r_val);
+      break;
+    }
+  }
+}
 
-void IRBuilder::visit(SyntaxTree::UnaryExpr &node) {}
+void IRBuilder::visit(SyntaxTree::UnaryExpr &node) { //@cyy
+  node.rhs->accept(*this);
+  if (node.op == SyntaxTree::UnaryOp::MINUS) {
+    if (tmp_val->get_type() == INT32_T) {
+      auto val_const = dynamic_cast<ConstantInt *>(tmp_val);
+      auto r_val = tmp_val;
+      if (val_const != nullptr){
+        tmp_val = CONST_INT(0 - val_const->get_value());
+      }
+      else{
+        tmp_val = builder->create_isub(CONST_INT(0), r_val);
+      }
+    }
+    else{ //FLOAT_T
+      auto val_const = dynamic_cast<ConstantFloat *>(tmp_val);
+      auto r_val = tmp_val;
+      if (val_const != nullptr){
+        tmp_val = CONST_FLOAT(0 - val_const->get_value());
+      }
+      else{
+        tmp_val = builder->create_fsub(CONST_FLOAT(0), r_val);
+      }
+    }
+  }
+}
 
-void IRBuilder::visit(SyntaxTree::FuncCallStmt &node) {
+
+void IRBuilder::visit(SyntaxTree::FuncCallStmt &node) { 
   auto func = static_cast<Function *>(scope.find(node.name, true));
   std::vector<Value *>args;
   auto param_type = func->get_function_type()->param_begin();
