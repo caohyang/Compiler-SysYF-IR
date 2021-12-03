@@ -88,153 +88,153 @@ void IRBuilder::visit(SyntaxTree::Assembly &node) {
 // You need to fill them
 
 void IRBuilder::visit(SyntaxTree::InitVal &node) {
-    if (node.isExp) {
-        node.expr->accept(*this);
-        initval[cur_pos] = tmp_val;
-        init_val.push_back(dynamic_cast<Constant *>(tmp_val));
+  if (node.isExp) {
+    node.expr->accept(*this);
+    initval[cur_pos] = tmp_val;
+    init_val.push_back(dynamic_cast<Constant *>(tmp_val));
+    cur_pos++;
+  }
+  else {
+    if (cur_depth!=0) {
+      while (cur_pos % array_sizes[cur_depth] != 0) {
+        init_val.push_back(CONST_INT(0));
         cur_pos++;
+      }
     }
-    else {
-        if (cur_depth!=0) {
-            while (cur_pos % array_sizes[cur_depth] != 0) {
-            init_val.push_back(CONST_INT(0));
-            cur_pos++;
-            }
-        }
-        int cur_start_pos = cur_pos;
-        for (const auto& elem : node.elementList) {
-            cur_depth++;
-            elem->accept(*this);
-            cur_depth--;
-        }
-        if (cur_depth!=0) {
-            while (cur_pos < cur_start_pos + array_sizes[cur_depth]) {
-            init_val.push_back(CONST_INT(0));
-            cur_pos++;
-            }
-        }
-        if (cur_depth==0) {
-            while (cur_pos < array_sizes[0]){
-                init_val.push_back(CONST_INT(0));
-                cur_pos++;
-            }
-        }
+    int cur_start_pos = cur_pos;
+    for (const auto& elem : node.elementList) {
+      cur_depth++;
+      elem->accept(*this);
+      cur_depth--;
     }
+    if (cur_depth!=0) {
+      while (cur_pos < cur_start_pos + array_sizes[cur_depth]) {
+        init_val.push_back(CONST_INT(0));
+        cur_pos++;
+      }
+    }
+    if (cur_depth==0) {
+      while (cur_pos < array_sizes[0]){
+        init_val.push_back(CONST_INT(0));
+        cur_pos++;
+      }
+    }
+  }
 }
 
 void IRBuilder::visit(SyntaxTree::FuncDef &node) {
-    FunctionType *fun_type;
-    Type *ret_type;
-    if (node.ret_type == SyntaxTree::Type::INT)
-        ret_type = INT32_T;
-    else
-        ret_type = VOID_T;
+  FunctionType *fun_type;
+  Type *ret_type;
+  if (node.ret_type == SyntaxTree::Type::INT)
+    ret_type = INT32_T;
+  else
+    ret_type = VOID_T;
 
-    std::vector<Type *> param_types;
-    std::vector<SyntaxTree::FuncParam>().swap(func_fparams);
-    node.param_list->accept(*this);
-    for (const auto& param : func_fparams) {
-        if (param.param_type == SyntaxTree::Type::INT) {
-            if (param.array_index.empty()) {
-                param_types.push_back(INT32_T);
-            }
-            else {
-                param_types.push_back(INT32PTR_T);
-            }
-        }
+  std::vector<Type *> param_types;
+  std::vector<SyntaxTree::FuncParam>().swap(func_fparams);
+  node.param_list->accept(*this);
+  for (const auto& param : func_fparams) {
+    if (param.param_type == SyntaxTree::Type::INT) {
+      if (param.array_index.empty()) {
+        param_types.push_back(INT32_T);
+      }
+      else {
+        param_types.push_back(INT32PTR_T);
+      }
     }
-    fun_type = FunctionType::get(ret_type, param_types);
-    auto fun = Function::create(fun_type, node.name, module.get());
-    scope.push_func(node.name, fun);
-    cur_fun = fun;
-    auto funBB = BasicBlock::create(module.get(), "entry", fun);
-    builder->set_insert_point(funBB);
-    cur_basic_block_list.push_back(funBB);
-    scope.enter();
-    pre_enter_scope = true;
-    std::vector<Value *> args;
-    for (auto arg = fun->arg_begin(); arg != fun->arg_end(); arg++) {
-        args.push_back(*arg);
+  }
+  fun_type = FunctionType::get(ret_type, param_types);
+  auto fun = Function::create(fun_type, node.name, module.get());
+  scope.push_func(node.name, fun);
+  cur_fun = fun;
+  auto funBB = BasicBlock::create(module.get(), "entry", fun);
+  builder->set_insert_point(funBB);
+  cur_basic_block_list.push_back(funBB);
+  scope.enter();
+  pre_enter_scope = true;
+  std::vector<Value *> args;
+  for (auto arg = fun->arg_begin(); arg != fun->arg_end(); arg++) {
+    args.push_back(*arg);
+  }
+  int param_num = func_fparams.size();
+  for (int i = 0; i < param_num; i++) {
+    if (func_fparams[i].array_index.empty()) {
+      Value *alloc;
+      alloc = builder->create_alloca(INT32_T);
+      builder->create_store(args[i], alloc);
+      scope.push(func_fparams[i].name, alloc);
     }
-    int param_num = func_fparams.size();
-    for (int i = 0; i < param_num; i++) {
-        if (func_fparams[i].array_index.empty()) {
-            Value *alloc;
-            alloc = builder->create_alloca(INT32_T);
-            builder->create_store(args[i], alloc);
-            scope.push(func_fparams[i].name, alloc);
+    else {
+      Value *alloc_array;
+      alloc_array = builder->create_alloca(INT32PTR_T);
+      builder->create_store(args[i], alloc_array);
+      scope.push(func_fparams[i].name, alloc_array);
+      array_bounds.clear();
+      array_sizes.clear();
+      for (auto bound_expr : func_fparams[i].array_index) {
+        int bound;
+        if (bound_expr==nullptr){
+          bound = 1;
         }
-        else {
-            Value *alloc_array;
-            alloc_array = builder->create_alloca(INT32PTR_T);
-            builder->create_store(args[i], alloc_array);
-            scope.push(func_fparams[i].name, alloc_array);
-            array_bounds.clear();
-            array_sizes.clear();
-            for (auto bound_expr : func_fparams[i].array_index) {
-                int bound;
-                if (bound_expr==nullptr){
-                    bound = 1;
-                }
-                else{
-                    bound_expr->accept(*this);
-                    auto bound_const = dynamic_cast<ConstantInt *>(tmp_val);
-                    bound = bound_const->get_value();
-                }
-                array_bounds.push_back(bound);
-            }
-            int total_size = 1;
-            for (auto iter = array_bounds.rbegin(); iter != array_bounds.rend();iter++) {
-                array_sizes.insert(array_sizes.begin(), total_size);
-                total_size *= (*iter);
-            }
-            array_sizes.insert(array_sizes.begin(), total_size);
-            scope.push_size(func_fparams[i].name, array_sizes);
+        else{
+          bound_expr->accept(*this);
+          auto bound_const = dynamic_cast<ConstantInt *>(tmp_val);
+          bound = bound_const->get_value();
         }
+        array_bounds.push_back(bound);
+      }
+      int total_size = 1;
+      for (auto iter = array_bounds.rbegin(); iter != array_bounds.rend();iter++) {
+        array_sizes.insert(array_sizes.begin(), total_size);
+        total_size *= (*iter);
+      }
+      array_sizes.insert(array_sizes.begin(), total_size);
+      scope.push_size(func_fparams[i].name, array_sizes);
     }
+  }
   //ret BB
-    if (ret_type == INT32_T){
-        ret_addr = builder->create_alloca(INT32_T);
-    }
-    ret_BB = BasicBlock::create(module.get(), "ret", fun);
+  if (ret_type == INT32_T){
+    ret_addr = builder->create_alloca(INT32_T);
+  }
+  ret_BB = BasicBlock::create(module.get(), "ret", fun);
 
-    node.body->accept(*this);
+  node.body->accept(*this);
 
-    if (builder->get_insert_block()->get_terminator() == nullptr) {
-        if (cur_fun->get_return_type()->is_void_type()){
-            builder->create_br(ret_BB);
-        }
-        else {
-            builder->create_store(CONST_INT(0), ret_addr);
-            builder->create_br(ret_BB);
-        }
+  if (builder->get_insert_block()->get_terminator() == nullptr) {
+    if (cur_fun->get_return_type()->is_void_type()){
+      builder->create_br(ret_BB);
     }
-    scope.exit();
-    cur_basic_block_list.pop_back();
+    else {
+      builder->create_store(CONST_INT(0), ret_addr);
+      builder->create_br(ret_BB);
+    }
+  }
+  scope.exit();
+  cur_basic_block_list.pop_back();
 
   //ret BB
-    builder->set_insert_point(ret_BB);
-    if (fun->get_return_type()== VOID_T){
-        builder->create_void_ret();
-    }
-    else{
-        auto ret_val = builder->create_load(ret_addr);
-        builder->create_ret(ret_val);
-    }
+  builder->set_insert_point(ret_BB);
+  if (fun->get_return_type()== VOID_T){
+    builder->create_void_ret();
+  }
+  else{
+    auto ret_val = builder->create_load(ret_addr);
+    builder->create_ret(ret_val);
+  }
 }
 
 void IRBuilder::visit(SyntaxTree::FuncFParamList &node) {
-    for (const auto& Param : node.params) {
-        Param->accept(*this);
-    }
+  for (const auto& Param : node.params) {
+    Param->accept(*this);
+  }
 }
 
 void IRBuilder::visit(SyntaxTree::FuncParam &node) {
-    func_fparams.push_back(node);
+  func_fparams.push_back(node);
 }
 
 void IRBuilder::visit(SyntaxTree::VarDef &node) {
-    Type *var_type;
+  Type *var_type;
   BasicBlock *cur_fun_entry_block;
   BasicBlock *cur_fun_cur_block;
   if (scope.in_global() == false) {
@@ -417,7 +417,100 @@ void IRBuilder::visit(SyntaxTree::VarDef &node) {
   }
 }
 
-void IRBuilder::visit(SyntaxTree::LVal &node) {}
+void IRBuilder::visit(SyntaxTree::LVal &node) {
+  auto var = scope.find(node.name);
+  bool should_return_lvalue = require_lvalue;
+  require_lvalue = false;
+  if (node.array_index.empty()) {
+    if (should_return_lvalue) {
+      if (var->get_type()->get_pointer_element_type()->is_array_type()) {
+        tmp_val = builder->create_gep(var, {CONST_INT(0), CONST_INT(0)});
+      }
+      else if (var->get_type()->get_pointer_element_type()->is_pointer_type()) {
+        tmp_val = builder->create_load(var);
+      }
+      else {
+        tmp_val = var;
+      }
+      require_lvalue = false;
+    }
+    else {
+      auto val_const = dynamic_cast<ConstantInt *>(var);
+      if (val_const != nullptr){
+        tmp_val = val_const;
+      }
+      else{
+        tmp_val = builder->create_load(var);
+      }
+    }
+  }
+  else {
+    auto var_sizes = scope.find_size(node.name);
+    std::vector<Value *>all_index;
+    Value *var_index = nullptr;
+    int index_const = 0;
+    bool const_check = true;
+
+    auto const_array = scope.find_const(node.name);
+    if (const_array == nullptr){
+      const_check = false;
+    }
+
+    for (int i = 0; i < node.array_index.size(); i++){
+      node.array_index[i]->accept(*this);
+      all_index.push_back(tmp_val);
+      if (const_check == true){
+        auto tmp_const = dynamic_cast<ConstantInt *>(tmp_val);
+        if (tmp_const == nullptr){
+          const_check = false;
+        }
+        else{
+          index_const = var_sizes[i + 1] * tmp_const->get_value() + index_const;
+        }
+      }
+    }
+
+    if (should_return_lvalue==false && const_check){
+      ConstantInt *tmp_const = dynamic_cast<ConstantInt *>(const_array->get_element_value(index_const));
+      tmp_val = CONST_INT(tmp_const->get_value());
+    }
+    else{
+      for (int i = 0; i < all_index.size(); i++) {
+        auto index_val = all_index[i];
+        Value *one_index;
+        if (var_sizes[i + 1] > 1){
+          one_index = builder->create_imul(CONST_INT(var_sizes[i + 1]), index_val);
+        }
+        else{
+          one_index = index_val;
+        }
+        if (var_index == nullptr) {
+          var_index = one_index;
+        }
+        else {
+          var_index = builder->create_iadd(var_index, one_index);
+        }
+      } // end for
+      if (node.array_index.size() > 1 || 1) {
+        Value * tmp_ptr;
+        if (var->get_type()->get_pointer_element_type()->is_pointer_type()) {
+          auto tmp_load = builder->create_load(var);
+          tmp_ptr = builder->create_gep(tmp_load, {var_index});
+        }
+        else {
+          tmp_ptr = builder->create_gep(var, {CONST_INT(0), var_index});
+        }
+        if (should_return_lvalue) {
+          tmp_val = tmp_ptr;
+          require_lvalue = false;
+        }
+        else {
+          tmp_val = builder->create_load(tmp_ptr);
+        }
+      }
+    }
+  }
+}
 
 void IRBuilder::visit(SyntaxTree::AssignStmt &node) {}
 
