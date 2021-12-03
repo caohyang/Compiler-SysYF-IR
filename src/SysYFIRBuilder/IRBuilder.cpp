@@ -296,21 +296,18 @@ void IRBuilder::visit(SyntaxTree::BinaryExpr &node) { //@cyy
       else
           tmp_val = builder->create_fsub(l_val, r_val);
       break;
-    }
     case SyntaxTree::BinOp::MULTIPLY:
       if (is_int)
           tmp_val = builder->create_imul(l_val, r_val);
       else
           tmp_val = builder->create_fmul(l_val, r_val);
       break;
-    }
     case SyntaxTree::BinOp::DIVIDE:
       if (is_int)
           tmp_val = builder->create_isdiv(l_val, r_val);
       else
           tmp_val = builder->create_fdiv(l_val, r_val);
       break;
-    }
     case SyntaxTree::BinOp::MODULO:
       tmp_val = builder->create_isrem(l_val, r_val);
       break;
