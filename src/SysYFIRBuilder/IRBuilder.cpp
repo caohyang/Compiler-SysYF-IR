@@ -1,4 +1,5 @@
 #include "IRBuilder.h"
+#include <vector>
 
 #define CONST_INT(num) ConstantInt::get(num, module.get())
 #define CONST_FLOAT(num) ConstantFloat::get(num, module.get())
@@ -8,6 +9,12 @@
 
 // store temporary value
 Value *tmp_val = nullptr;
+// function that is being built
+Function *cur_fun = nullptr;
+// while exit
+vector<BasicBlock *>while_exit;
+// while begin 
+vector<BasicBlock *>while_bigen;
 
 // types
 Type *VOID_T;
@@ -65,10 +72,74 @@ void IRBuilder::visit(SyntaxTree::UnaryExpr &node) {}
 
 void IRBuilder::visit(SyntaxTree::FuncCallStmt &node) {}
 
-void IRBuilder::visit(SyntaxTree::IfStmt &node) {}
+void IRBuilder::visit(SyntaxTree::IfStmt &node) {
+    node.cond_exp->accept(*this);
+    auto ret_val = tmp_val;
+    auto trueBB = BasicBlock::create(module.get(), "true", cur_fun);
+    auto falseBB = BasicBlock::create(module.get(), "false", cur_fun);
+    auto nextBB = BasicBlock::create(module.get(), "if_next", cur_fun);
+    Value *cond_val;
+    if (ret_val->get_type()->is_integer_type())
+        cond_val = builder->create_icmp_ne(ret_val, CONST_INT(0));
+    else
+        cond_val = builder->create_fcmp_ne(ret_val, CONST_FLOAT(0.));
 
-void IRBuilder::visit(SyntaxTree::WhileStmt &node) {}
+    if (node.else_statement == nullptr) {
+        builder->create_cond_br(cond_val, trueBB, nextBB);
+    } else {
+        builder->create_cond_br(cond_val, trueBB, falseBB);
+    }
+    builder->set_insert_point(trueBB);
+    node.if_statement->accept(*this);
 
-void IRBuilder::visit(SyntaxTree::BreakStmt &node) {}
+    if (builder->get_insert_block()->get_terminator() == nullptr)
+        builder->create_br(nextBB);
 
-void IRBuilder::visit(SyntaxTree::ContinueStmt &node) {}
+    if (node.else_statement == nullptr) {
+        falseBB->erase_from_parent();
+    } else {
+        builder->set_insert_point(falseBB);
+        node.else_statement->accept(*this);
+        if (builder->get_insert_block()->get_terminator() == nullptr)
+            builder->create_br(nextBB);
+    }
+
+    builder->set_insert_point(nextBB);
+}
+
+void IRBuilder::visit(SyntaxTree::WhileStmt &node) {
+    auto condBB = BasicBlock::create(module.get(), "while_cond", cur_fun);
+    if (builder->get_insert_block()->get_terminator() == nullptr)
+        builder->create_br(condBB);
+    builder->set_insert_point(condBB);
+    node.cond_exp->accept(*this);
+    auto ret_val = tmp_val;
+    auto trueBB = BasicBlock::create(module.get(), "while_true", cur_fun);
+    auto falseBB = BasicBlock::create(module.get(), "while_false", cur_fun);
+    while_exit.push_back(falseBB);
+    while_begin.push_back(condBB);
+    Value *cond_val;
+    if (ret_val->get_type()->is_integer_type())
+        cond_val = builder->create_icmp_ne(ret_val, CONST_INT(0));
+    else
+        cond_val = builder->create_fcmp_ne(ret_val, CONST_FLOAT(0.));
+
+    builder->create_cond_br(cond_val, trueBB, falseBB);
+    builder->set_insert_point(trueBB);
+    node.statement->accept(*this);
+    if (builder->get_insert_block()->get_terminator() == nullptr)
+        builder->create_br(condBB);
+    builder->set_insert_point(falseBB);   
+    while_begin.pop_back();
+    while_exit.pop_back();
+}
+
+void IRBuilder::visit(SyntaxTree::BreakStmt &node) {
+    auto exit_ = while_exit.back();
+    builder->create_br(exit_);
+}
+
+void IRBuilder::visit(SyntaxTree::ContinueStmt &node) {
+    auto beg = while_begin.back();
+    builder->create_br(beg);
+}
