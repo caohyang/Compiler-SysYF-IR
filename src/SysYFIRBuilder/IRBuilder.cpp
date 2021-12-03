@@ -123,7 +123,23 @@ void IRBuilder::visit(SyntaxTree::VarDef &node) {}
 
 void IRBuilder::visit(SyntaxTree::LVal &node) {}
 
-void IRBuilder::visit(SyntaxTree::AssignStmt &node) {}
+void IRBuilder::visit(SyntaxTree::AssignStmt &node) {
+  node.value->accept(*this);
+  auto expr_result = tmp_val;
+  require_lvalue = true;
+  node.target->accept(*this);
+  auto var_addr = tmp_val;
+  if (var_addr->get_type()->get_pointer_element_type() != expr_result->get_type()) {
+    if (expr_result->get_type() == INT32_T) {
+      expr_result = builder->create_sitofp(expr_result, FLOAT_T);
+    }
+    else {
+      expr_result = builder->create_fptosi(expr_result, INT32_T);
+    }
+  }
+  builder->create_store(expr_result, var_addr);
+  tmp_val = expr_result;
+}
 
 void IRBuilder::visit(SyntaxTree::Literal &node) {
   if (node.literal_type == SyntaxTree::Type::INT)
@@ -165,10 +181,10 @@ void IRBuilder::visit(SyntaxTree::BinaryExpr &node) {}
 void IRBuilder::visit(SyntaxTree::UnaryExpr &node) {}
 
 void IRBuilder::visit(SyntaxTree::FuncCallStmt &node) {
-  auto func = static_cast<Function *>(scope.find(node.name));
+  auto func = static_cast<Function *>(scope.find(node.name, true));
   std::vector<Value *>args;
   auto param_type = func->get_function_type()->param_begin();
-  for (auto &arg : node.args) {
+  for (auto &arg : node.params) {
     arg->accept(*this);
     if (!tmp_val->get_type()->is_pointer_type() && *param_type!=tmp_val->get_type()) {
       if (tmp_val->get_type()->is_pointer_type()) {
