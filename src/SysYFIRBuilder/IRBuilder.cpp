@@ -150,6 +150,7 @@ void IRBuilder::visit(SyntaxTree::FuncDef &node) {
   cur_fun = fun;
   auto funBB = BasicBlock::create(module.get(), "entry", fun);
   builder->set_insert_point(funBB);
+  cur_basic_block_list.push_back(funBB);
   scope.enter();
   pre_enter_scope = true;
   std::vector<Value *> args;
@@ -439,71 +440,6 @@ void IRBuilder::visit(SyntaxTree::LVal &node) {
         tmp_val = builder->create_load(var_with_index);
       }
     }
-    /*
-    auto var_sizes = scope.find_size(node.name);
-    std::vector<Value *>all_index;
-    Value *var_index = nullptr;
-    int index_const = 0;
-    bool const_check = true;
-
-    auto const_array = scope.find_const(node.name);
-    if (const_array == nullptr){
-      const_check = false;
-    }
-    for (int i = 0; i < node.array_index.size(); i++){
-      node.array_index[i]->accept(*this);
-      all_index.push_back(tmp_val);
-      if (const_check == true){
-        auto tmp_const = dynamic_cast<ConstantInt *>(tmp_val);
-        if (tmp_const == nullptr){
-          const_check = false;
-        }
-        else{
-          index_const = var_sizes[i + 1] * tmp_const->get_value() + index_const;
-        }
-      }
-    }
-
-    if (should_return_lvalue==false && const_check){
-      ConstantInt *tmp_const = dynamic_cast<ConstantInt *>(const_array->get_element_value(index_const));
-      tmp_val = CONST_INT(tmp_const->get_value());
-    }
-    else{
-      for (int i = 0; i < all_index.size(); i++) {
-        auto index_val = all_index[i];
-        Value *one_index;
-        if (var_sizes[i + 1] > 1){
-          one_index = builder->create_imul(CONST_INT(var_sizes[i + 1]), index_val);
-        }
-        else{
-          one_index = index_val;
-        }
-        if (var_index == nullptr) {
-          var_index = one_index;
-        }
-        else {
-          var_index = builder->create_iadd(var_index, one_index);
-        }
-      } // end for
-      if (node.array_index.size() > 1 || 1) {
-        Value * tmp_ptr;
-        if (var->get_type()->get_pointer_element_type()->is_pointer_type()) {
-          auto tmp_load = builder->create_load(var);
-          tmp_ptr = builder->create_gep(tmp_load, {var_index});
-        }
-        else {
-          tmp_ptr = builder->create_gep(var, {CONST_INT(0), var_index});
-        }
-        if (should_return_lvalue) {
-          tmp_val = tmp_ptr;
-          require_lvalue = false;
-        }
-        else {
-          tmp_val = builder->create_load(tmp_ptr);
-        }
-      }
-    }
-    */
   }
 }
 
