@@ -209,6 +209,7 @@ void IRBuilder::visit(SyntaxTree::VarDef &node) {
   if (node.is_constant) {
     Value *var;
     if (node.array_length.empty()){
+      node.initializers->accept(*this);
       if (node.btype == SyntaxTree::Type::INT)
         var = ConstantInt::get(dynamic_cast<ConstantInt *>(tmp_val)->get_value(), module.get());
       else
