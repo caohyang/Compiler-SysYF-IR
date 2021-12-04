@@ -415,7 +415,31 @@ void IRBuilder::visit(SyntaxTree::LVal &node) {
       }
     }
   }
-  else { // needs a big change
+  else { // only deal with one-dimension array
+    node.array_index[0]->accept(*this);
+    auto var_with_index = builder->create_gep(var, {CONST_INT(0), CONST_INT(tmp_val)});
+    if (should_return_lvalue) {
+      if (var->get_type()->get_pointer_element_type()->is_array_type()) {
+        tmp_val = builder->create_gep(var, {CONST_INT(0), CONST_INT(tmp_val)});
+      }
+      else if (var->get_type()->get_pointer_element_type()->is_pointer_type()) {
+        tmp_val = builder->create_load(var_with_index);
+      }
+      else {
+        tmp_val = var_with_index;
+      }
+      require_lvalue = false;
+    }
+    else {
+      auto val_const = dynamic_cast<Constant *>(var_with_index);
+      if (val_const != nullptr){
+        tmp_val = val_const;
+      }
+      else{
+        tmp_val = builder->create_load(var_with_index);
+      }
+    }
+    /*
     auto var_sizes = scope.find_size(node.name);
     std::vector<Value *>all_index;
     Value *var_index = nullptr;
@@ -426,7 +450,6 @@ void IRBuilder::visit(SyntaxTree::LVal &node) {
     if (const_array == nullptr){
       const_check = false;
     }
-
     for (int i = 0; i < node.array_index.size(); i++){
       node.array_index[i]->accept(*this);
       all_index.push_back(tmp_val);
@@ -480,6 +503,7 @@ void IRBuilder::visit(SyntaxTree::LVal &node) {
         }
       }
     }
+    */
   }
 }
 
