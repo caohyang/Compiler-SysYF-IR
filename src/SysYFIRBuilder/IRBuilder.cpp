@@ -704,7 +704,7 @@ void IRBuilder::visit(SyntaxTree::FuncCallStmt &node) {
     arg->accept(*this);
     if (!tmp_val->get_type()->is_pointer_type() &&
         *param_type != tmp_val->get_type()) {
-      if (tmp_val->get_type()->is_pointer_type()) {
+      if (*param_type == FLOAT_T) {
         tmp_val = builder->create_sitofp(tmp_val, FLOAT_T);
       } else {
         tmp_val = builder->create_fptosi(tmp_val, INT32_T);
