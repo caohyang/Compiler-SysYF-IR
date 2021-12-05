@@ -1,0 +1,7 @@
+const int a = 1;
+int b[a];
+
+int main(){
+    b[0] = 2;
+    return b[0];
+}
