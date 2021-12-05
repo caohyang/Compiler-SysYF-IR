@@ -5,6 +5,12 @@
 #define CONST_INT(num) ConstantInt::get(num, module.get())
 #define CONST_FLOAT(num) ConstantFloat::get(num, module.get())
 
+#ifdef DEBUG // 用于调试信息,大家可以在编译过程中通过" -DDEBUG"来开启这一选项
+#define DEBUG_OUTPUT std::cout << __LINE__ << std::endl; // 输出行号的简单示例
+#else
+#define DEBUG_OUTPUT
+#endif
+
 // You can define global variables and functions here
 // to store state
 
@@ -315,6 +321,13 @@ void IRBuilder::visit(SyntaxTree::VarDef &node) {
         }
         if (node.is_inited) {
           node.initializers->accept(*this);
+          if (var->get_type() != tmp_val->get_type()) {
+            if (var->get_type() == FLOAT_T) {
+              tmp_val = builder->create_sitofp(tmp_val, FLOAT_T);
+            } else {
+              tmp_val = builder->create_fptosi(tmp_val, INT32_T);
+            }
+          }
           builder->create_store(tmp_val, var);
         }
         scope.push(node.name, var);
@@ -410,9 +423,12 @@ void IRBuilder::visit(SyntaxTree::LVal &node) {
       }
       require_lvalue = false;
     } else {
-      auto val_const = dynamic_cast<Constant *>(var);
-      if (val_const != nullptr) {
-        tmp_val = val_const;
+      auto val_constint = dynamic_cast<ConstantInt *>(var);
+      auto val_constfloat = dynamic_cast<ConstantFloat *>(var);
+      if (val_constint != nullptr) {
+        tmp_val = val_constint;
+      } else if (val_constfloat != nullptr) {
+        tmp_val = val_constfloat;
       } else {
         tmp_val = builder->create_load(var);
       }
@@ -449,6 +465,7 @@ void IRBuilder::visit(SyntaxTree::AssignStmt &node) {
   require_lvalue = true;
   node.target->accept(*this);
   auto var_addr = tmp_val;
+
   if (var_addr->get_type()->get_pointer_element_type() !=
       expr_result->get_type()) {
     if (expr_result->get_type() == INT32_T) {
@@ -767,8 +784,7 @@ void IRBuilder::visit(SyntaxTree::WhileStmt &node) {
   cur_basic_block_list.push_back(trueBB);
   if (dynamic_cast<SyntaxTree::BlockStmt *>(node.statement.get())) {
     node.statement->accept(*this);
-  }
-  else {
+  } else {
     scope.enter();
     node.statement->accept(*this);
     scope.exit();
