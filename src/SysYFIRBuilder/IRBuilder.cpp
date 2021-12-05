@@ -321,8 +321,8 @@ void IRBuilder::visit(SyntaxTree::VarDef &node) {
         }
         if (node.is_inited) {
           node.initializers->accept(*this);
-          if (var->get_type() != tmp_val->get_type()) {
-            if (var->get_type() == FLOAT_T) {
+          if (var_type != tmp_val->get_type()) {
+            if (var_type == FLOAT_T) {
               tmp_val = builder->create_sitofp(tmp_val, FLOAT_T);
             } else {
               tmp_val = builder->create_fptosi(tmp_val, INT32_T);
