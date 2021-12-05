@@ -5,12 +5,6 @@
 #define CONST_INT(num) ConstantInt::get(num, module.get())
 #define CONST_FLOAT(num) ConstantFloat::get(num, module.get())
 
-#ifdef DEBUG // 用于调试信息,大家可以在编译过程中通过" -DDEBUG"来开启这一选项
-#define DEBUG_OUTPUT std::cout << __LINE__ << std::endl; // 输出行号的简单示例
-#else
-#define DEBUG_OUTPUT
-#endif
-
 // You can define global variables and functions here
 // to store state
 
@@ -54,18 +48,26 @@ std::vector<Constant *> init_val;
 BasicBlock *ret_BB;
 Value *ret_addr;
 
-bool type_cast(IRStmtBuilder *builder, Value **l_val_p, Value **r_val_p) {
+bool type_cast(IRStmtBuilder *builder, Value **l_val, Value **r_val) {
   bool is_int;
-  auto &l_val = *l_val_p;
-  auto &r_val = *r_val_p;
-  if (l_val->get_type() == r_val->get_type()) {
-    is_int = l_val->get_type()->is_integer_type();
+  if ((*l_val)->get_type()->is_integer_type()) {
+    std::cout << "lval:int";
+  } else {
+    std::cout << "lval:float";
+  }
+  if ((*l_val)->get_type()->is_integer_type()) {
+    std::cout << "rval:int";
+  } else {
+    std::cout << "rval:float";
+  }
+  if ((*l_val)->get_type() == (*r_val)->get_type()) {
+    is_int = (*l_val)->get_type()->is_integer_type();
   } else {
     is_int = false;
-    if (l_val->get_type()->is_integer_type())
-      l_val = builder->create_sitofp(l_val, FLOAT_T);
+    if ((*l_val)->get_type()->is_integer_type())
+      *l_val = builder->create_sitofp((*l_val), FLOAT_T);
     else
-      r_val = builder->create_sitofp(r_val, FLOAT_T);
+      *r_val = builder->create_sitofp((*r_val), FLOAT_T);
   }
   return is_int;
 }
@@ -77,6 +79,7 @@ void IRBuilder::visit(SyntaxTree::Assembly &node) {
   FLOAT_T = Type::get_float_type(module.get());
   INT32PTR_T = Type::get_int32_ptr_type(module.get());
   FLOATPTR_T = Type::get_float_ptr_type(module.get());
+  std::cout << "letsgo";
   for (const auto &def : node.global_defs) {
     def->accept(*this);
   }
@@ -284,10 +287,13 @@ void IRBuilder::visit(SyntaxTree::VarDef &node) {
   }
 
   else {
-    if (node.btype == SyntaxTree::Type::INT)
+    if (node.btype == SyntaxTree::Type::INT) {
       var_type = INT32_T;
-    else
+      // std::cout << "var_type:int";
+    } else {
       var_type = FLOAT_T;
+      // std::cout << "var_type:float";
+    }
     if (node.array_length.empty()) {
       Value *var;
       if (scope.in_global()) {
@@ -321,8 +327,21 @@ void IRBuilder::visit(SyntaxTree::VarDef &node) {
         }
         if (node.is_inited) {
           node.initializers->accept(*this);
-          if (var_type != tmp_val->get_type()) {
-            if (var_type == FLOAT_T) {
+          /**
+          if (var->get_type() == INT32_T) {
+            std::cout << "var = int";
+          } else {
+            std::cout << "var = float";
+          }
+          if (tmp_val->get_type() == INT32_T) {
+            std::cout << "tmp_val = int";
+          } else {
+            std::cout << "tmp_val = float";
+          }
+          **/
+          if (var->get_type()->get_pointer_element_type() !=
+              tmp_val->get_type()) {
+            if (var->get_type()->get_pointer_element_type() == FLOAT_T) {
               tmp_val = builder->create_sitofp(tmp_val, FLOAT_T);
             } else {
               tmp_val = builder->create_fptosi(tmp_val, INT32_T);
@@ -694,6 +713,7 @@ void IRBuilder::visit(SyntaxTree::FuncCallStmt &node) {
     args.push_back(tmp_val);
     param_type++;
   }
+  tmp_val = builder->create_call(static_cast<Function *>(func), args);
 }
 
 void IRBuilder::visit(SyntaxTree::IfStmt &node) {
