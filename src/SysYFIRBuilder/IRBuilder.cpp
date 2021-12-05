@@ -680,8 +680,6 @@ void IRBuilder::visit(SyntaxTree::FuncCallStmt &node) {
 }
 
 void IRBuilder::visit(SyntaxTree::IfStmt &node) {
-  node.cond_exp->accept(*this);
-  auto ret_val = tmp_val;
   auto trueBB = BasicBlock::create(module.get(), "true", cur_fun);
   auto falseBB = BasicBlock::create(module.get(), "false", cur_fun);
   auto nextBB = BasicBlock::create(module.get(), "if_next", cur_fun);
