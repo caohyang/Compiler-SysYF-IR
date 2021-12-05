@@ -454,11 +454,12 @@ void IRBuilder::visit(SyntaxTree::LVal &node) {
     }
   } else { // only deal with one-dimension array
     node.array_index[0]->accept(*this);
+    auto tmp_const = dynamic_cast<ConstantInt *>(tmp_val);
     auto var_with_index =
-        builder->create_gep(var, {CONST_INT(0), CONST_INT(tmp_val)});
+        builder->create_gep(var, {CONST_INT(0), CONST_INT(tmp_const->get_value())});
     if (should_return_lvalue) {
       if (var->get_type()->get_pointer_element_type()->is_array_type()) {
-        tmp_val = builder->create_gep(var, {CONST_INT(0), CONST_INT(tmp_val)});
+        tmp_val = builder->create_gep(var, {CONST_INT(0), CONST_INT(tmp_const->get_value())});
       } else if (var->get_type()
                      ->get_pointer_element_type()
                      ->is_pointer_type()) {
