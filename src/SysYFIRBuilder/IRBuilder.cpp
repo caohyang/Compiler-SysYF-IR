@@ -50,6 +50,7 @@ Value *ret_addr;
 
 bool type_cast(IRStmtBuilder *builder, Value **l_val, Value **r_val) {
   bool is_int;
+  /*
   if ((*l_val)->get_type()->is_integer_type()) {
     std::cout << "lval:int";
   } else {
@@ -60,6 +61,7 @@ bool type_cast(IRStmtBuilder *builder, Value **l_val, Value **r_val) {
   } else {
     std::cout << "rval:float";
   }
+  */
   if ((*l_val)->get_type() == (*r_val)->get_type()) {
     is_int = (*l_val)->get_type()->is_integer_type();
   } else {
@@ -79,7 +81,6 @@ void IRBuilder::visit(SyntaxTree::Assembly &node) {
   FLOAT_T = Type::get_float_type(module.get());
   INT32PTR_T = Type::get_int32_ptr_type(module.get());
   FLOATPTR_T = Type::get_float_ptr_type(module.get());
-  std::cout << "letsgo";
   for (const auto &def : node.global_defs) {
     def->accept(*this);
   }
@@ -251,8 +252,7 @@ void IRBuilder::visit(SyntaxTree::VarDef &node) {
       auto initializer = ConstantArray::get(array_type, init_val);
 
       if (scope.in_global()) {
-        var = GlobalVariable::create(node.name, module.get(), array_type, true,
-                                     initializer);
+        var = GlobalVariable::create(node.name, module.get(), array_type, true, initializer);
         scope.push(node.name, var);
         // scope.push_size(node.name, array_sizes);
         // scope.push_const(node.name, initializer);
@@ -299,19 +299,35 @@ void IRBuilder::visit(SyntaxTree::VarDef &node) {
       if (scope.in_global()) {
         if (node.is_inited) {
           node.initializers->accept(*this);
-          if (var_type == INT32_T)
-            var =
-                GlobalVariable::create(node.name, module.get(), var_type, false,
-                                       dynamic_cast<ConstantInt *>(tmp_val));
-          else
-            var =
-                GlobalVariable::create(node.name, module.get(), var_type, false,
-                                       dynamic_cast<ConstantFloat *>(tmp_val));
-          scope.push(node.name, var);
+          if (var_type == INT32_T){
+            if (tmp_val->get_type() == FLOAT_T) {
+              /*
+              auto judge_floatconst = dynamic_cast<ConstantFloat *>(tmp_val);
+              if (judge_floatconst != nullptr)
+                tmp_val = CONST_INT(judge_floatconst->get_value());
+              else
+              */
+              tmp_val = builder->create_fptosi(tmp_val, INT32_T);
+            }
+            auto initializer = dynamic_cast<ConstantInt *>(tmp_val);
+            var = GlobalVariable::create(node.name, module.get(), var_type, false, initializer);
+            scope.push(node.name, var);
+          }
+          else{
+            if (tmp_val->get_type() == INT32_T) {
+              auto judge_intconst = dynamic_cast<ConstantInt *>(tmp_val);
+              if (judge_intconst != nullptr)
+                tmp_val = CONST_FLOAT(judge_intconst->get_value());
+              else
+                tmp_val = builder->create_sitofp(tmp_val, FLOAT_T);
+            }
+            auto initializer = dynamic_cast<ConstantFloat *>(tmp_val);
+            var = GlobalVariable::create(node.name, module.get(), var_type, false, initializer);
+            scope.push(node.name, var);
+          }
         } else {
           auto initializer = ConstantZero::get(var_type, module.get());
-          var = GlobalVariable::create(node.name, module.get(), var_type, false,
-                                       initializer);
+          var = GlobalVariable::create(node.name, module.get(), var_type, false, initializer);
           scope.push(node.name, var);
         }
       } else {
@@ -327,18 +343,6 @@ void IRBuilder::visit(SyntaxTree::VarDef &node) {
         }
         if (node.is_inited) {
           node.initializers->accept(*this);
-          /**
-          if (var->get_type() == INT32_T) {
-            std::cout << "var = int";
-          } else {
-            std::cout << "var = float";
-          }
-          if (tmp_val->get_type() == INT32_T) {
-            std::cout << "tmp_val = int";
-          } else {
-            std::cout << "tmp_val = float";
-          }
-          **/
           if (var->get_type()->get_pointer_element_type() !=
               tmp_val->get_type()) {
             if (var->get_type()->get_pointer_element_type() == FLOAT_T) {
@@ -454,26 +458,28 @@ void IRBuilder::visit(SyntaxTree::LVal &node) {
     }
   } else { // only deal with one-dimension array
     node.array_index[0]->accept(*this);
-    auto tmp_const = dynamic_cast<ConstantInt *>(tmp_val);
-    auto var_with_index =
-        builder->create_gep(var, {CONST_INT(0), CONST_INT(tmp_const->get_value())});
-    if (should_return_lvalue) {
-      if (var->get_type()->get_pointer_element_type()->is_array_type()) {
-        tmp_val = builder->create_gep(var, {CONST_INT(0), CONST_INT(tmp_const->get_value())});
-      } else if (var->get_type()
-                     ->get_pointer_element_type()
-                     ->is_pointer_type()) {
-        tmp_val = builder->create_load(var_with_index);
-      } else {
-        tmp_val = var_with_index;
+    Value *tmp_ptr;
+    auto var_const = dynamic_cast<GlobalVariable *>(var);
+    if (var_const != nullptr && !should_return_lvalue && var_const->is_const()){
+        auto tmp_const_array = dynamic_cast<ConstantArray *>(var_const->get_init());
+        auto val = dynamic_cast<ConstantInt *>(tmp_val)->get_value();
+        auto tmp_const = dynamic_cast<ConstantInt *>(tmp_const_array->get_element_value(val));
+        tmp_val = CONST_INT(tmp_const->get_value());
+    }
+    else{
+      if (var->get_type()->get_pointer_element_type()->is_pointer_type()) {
+        auto tmp_load = builder->create_load(var);
+        tmp_ptr = builder->create_gep(tmp_load, {tmp_val});
       }
-      require_lvalue = false;
-    } else {
-      auto val_const = dynamic_cast<Constant *>(var_with_index);
-      if (val_const != nullptr) {
-        tmp_val = val_const;
-      } else {
-        tmp_val = builder->create_load(var_with_index);
+      else {
+        tmp_ptr = builder->create_gep(var, {CONST_INT(0), tmp_val});
+      }
+      if (should_return_lvalue) {
+        tmp_val = tmp_ptr;
+        require_lvalue = false;
+      }
+      else {
+        tmp_val = builder->create_load(tmp_ptr);
       }
     }
   }
@@ -486,12 +492,23 @@ void IRBuilder::visit(SyntaxTree::AssignStmt &node) {
   node.target->accept(*this);
   auto var_addr = tmp_val;
 
-  if (var_addr->get_type()->get_pointer_element_type() !=
-      expr_result->get_type()) {
-    if (expr_result->get_type() == INT32_T) {
-      expr_result = builder->create_sitofp(expr_result, FLOAT_T);
-    } else {
-      expr_result = builder->create_fptosi(expr_result, INT32_T);
+  if (var_addr->get_type()->is_pointer_type()){
+    if (var_addr->get_type()->get_pointer_element_type() !=
+        expr_result->get_type()) {
+      if (expr_result->get_type() == INT32_T) {
+        expr_result = builder->create_sitofp(expr_result, FLOAT_T);
+      } else {
+        expr_result = builder->create_fptosi(expr_result, INT32_T);
+      }
+    }
+  }
+  else{
+    if (var_addr->get_type() != expr_result->get_type()) {
+      if (expr_result->get_type() == INT32_T) {
+        expr_result = builder->create_sitofp(expr_result, FLOAT_T);
+      } else {
+        expr_result = builder->create_fptosi(expr_result, INT32_T);
+      }
     }
   }
   builder->create_store(expr_result, var_addr);
@@ -644,8 +661,14 @@ void IRBuilder::visit(SyntaxTree::BinaryExpr &node) {
     bool is_int = type_cast(builder, &l_val, &r_val);
     switch (node.op) {
     case SyntaxTree::BinOp::PLUS:
-      if (is_int)
-        tmp_val = builder->create_iadd(l_val, r_val);
+      if (is_int){
+        auto l_val_intconst = dynamic_cast<ConstantInt *>(l_val);
+        auto r_val_intconst = dynamic_cast<ConstantInt *>(r_val);
+        if (l_val_intconst != nullptr && r_val_intconst != nullptr)
+          tmp_val = CONST_INT(l_val_intconst->get_value() + r_val_intconst->get_value());
+        else
+          tmp_val = builder->create_iadd(l_val, r_val);
+      }
       else
         tmp_val = builder->create_fadd(l_val, r_val);
       break;
