@@ -461,10 +461,10 @@ void IRBuilder::visit(SyntaxTree::LVal &node) {
     Value *tmp_ptr;
     auto var_const = dynamic_cast<GlobalVariable *>(var);
     if (var_const != nullptr && !should_return_lvalue && var_const->is_const()){
-        auto tmp_const_array = dynamic_cast<ConstantArray *>(var_const->get_init());
-        auto val = dynamic_cast<ConstantInt *>(tmp_val)->get_value();
-        auto tmp_const = dynamic_cast<ConstantInt *>(tmp_const_array->get_element_value(val));
-        tmp_val = CONST_INT(tmp_const->get_value());
+      auto tmp_const_array = dynamic_cast<ConstantArray *>(var_const->get_init());
+      auto val = dynamic_cast<ConstantInt *>(tmp_val)->get_value();
+      auto tmp_const = dynamic_cast<ConstantInt *>(tmp_const_array->get_element_value(val));
+      tmp_val = CONST_INT(tmp_const->get_value());
     }
     else{
       if (var->get_type()->get_pointer_element_type()->is_pointer_type()) {
@@ -669,29 +669,76 @@ void IRBuilder::visit(SyntaxTree::BinaryExpr &node) {
         else
           tmp_val = builder->create_iadd(l_val, r_val);
       }
-      else
-        tmp_val = builder->create_fadd(l_val, r_val);
+      else{
+        auto l_val_floatconst = dynamic_cast<ConstantFloat *>(l_val);
+        auto r_val_floatconst = dynamic_cast<ConstantFloat *>(r_val);
+        if (l_val_floatconst != nullptr && r_val_floatconst != nullptr)
+          tmp_val = CONST_FLOAT(l_val_floatconst->get_value() + r_val_floatconst->get_value());
+        else
+          tmp_val = builder->create_fadd(l_val, r_val);
+      }
       break;
     case SyntaxTree::BinOp::MINUS:
-      if (is_int)
-        tmp_val = builder->create_isub(l_val, r_val);
-      else
-        tmp_val = builder->create_fsub(l_val, r_val);
+      if (is_int){
+        auto l_val_intconst = dynamic_cast<ConstantInt *>(l_val);
+        auto r_val_intconst = dynamic_cast<ConstantInt *>(r_val);
+        if (l_val_intconst != nullptr && r_val_intconst != nullptr)
+          tmp_val = CONST_INT(l_val_intconst->get_value() - r_val_intconst->get_value());
+        else
+          tmp_val = builder->create_isub(l_val, r_val);
+      }
+      else{
+        auto l_val_floatconst = dynamic_cast<ConstantFloat *>(l_val);
+        auto r_val_floatconst = dynamic_cast<ConstantFloat *>(r_val);
+        if (l_val_floatconst != nullptr && r_val_floatconst != nullptr)
+          tmp_val = CONST_FLOAT(l_val_floatconst->get_value() - r_val_floatconst->get_value());
+        else
+          tmp_val = builder->create_fsub(l_val, r_val);
+      }
       break;
     case SyntaxTree::BinOp::MULTIPLY:
-      if (is_int)
-        tmp_val = builder->create_imul(l_val, r_val);
-      else
-        tmp_val = builder->create_fmul(l_val, r_val);
+      if (is_int){
+        auto l_val_intconst = dynamic_cast<ConstantInt *>(l_val);
+        auto r_val_intconst = dynamic_cast<ConstantInt *>(r_val);
+        if (l_val_intconst != nullptr && r_val_intconst != nullptr)
+          tmp_val = CONST_INT(l_val_intconst->get_value() * r_val_intconst->get_value());
+        else
+          tmp_val = builder->create_imul(l_val, r_val);
+      }
+      else{
+        auto l_val_floatconst = dynamic_cast<ConstantFloat *>(l_val);
+        auto r_val_floatconst = dynamic_cast<ConstantFloat *>(r_val);
+        if (l_val_floatconst != nullptr && r_val_floatconst != nullptr)
+          tmp_val = CONST_FLOAT(l_val_floatconst->get_value() * r_val_floatconst->get_value());
+        else
+          tmp_val = builder->create_fmul(l_val, r_val);
+      }
       break;
     case SyntaxTree::BinOp::DIVIDE:
-      if (is_int)
-        tmp_val = builder->create_isdiv(l_val, r_val);
-      else
-        tmp_val = builder->create_fdiv(l_val, r_val);
+      if (is_int){
+        auto l_val_intconst = dynamic_cast<ConstantInt *>(l_val);
+        auto r_val_intconst = dynamic_cast<ConstantInt *>(r_val);
+        if (l_val_intconst != nullptr && r_val_intconst != nullptr)
+          tmp_val = CONST_INT(l_val_intconst->get_value() / r_val_intconst->get_value());
+        else
+          tmp_val = builder->create_isdiv(l_val, r_val);
+      }
+      else{
+        auto l_val_floatconst = dynamic_cast<ConstantFloat *>(l_val);
+        auto r_val_floatconst = dynamic_cast<ConstantFloat *>(r_val);
+        if (l_val_floatconst != nullptr && r_val_floatconst != nullptr)
+          tmp_val = CONST_FLOAT(l_val_floatconst->get_value() / r_val_floatconst->get_value());
+        else
+          tmp_val = builder->create_fdiv(l_val, r_val);
+      }
       break;
     case SyntaxTree::BinOp::MODULO:
-      tmp_val = builder->create_isrem(l_val, r_val);
+      auto l_val_intconst = dynamic_cast<ConstantInt *>(l_val);
+      auto r_val_intconst = dynamic_cast<ConstantInt *>(r_val);
+      if (l_val_intconst != nullptr && r_val_intconst != nullptr)
+        tmp_val = CONST_INT(l_val_intconst->get_value() % r_val_intconst->get_value());
+      else
+        tmp_val = builder->create_isrem(l_val, r_val);
       break;
     }
   }
