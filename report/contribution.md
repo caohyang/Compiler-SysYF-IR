@@ -4,20 +4,20 @@
 
 ### 组长 曹奕阳（PB19000046）
 
-负责项目的组织和提交。完成第一关的`assign_hand.ll`，第二关的`assign_gen.cpp`、`func_gen.cpp`和思考题。
+负责项目的组织和提交。贡献包括：第一关的`assign_hand.ll`，第二关的`assign_gen.cpp`、`func_gen.cpp`、思考题，第三关的部分代码（50%）与调试，设计样例，修改实验报告。
 
 ### 组员 薛东昀（PB19000254）
 
-完成第二关的`if_gen.cpp`、`while_gen.cpp`。
+贡献包括：第二关的`if_gen.cpp`、`while_gen.cpp`，第三关的部分代码（30%）与调试，设计样例，实验报告。
 
 ### 组员 孙杰（PB19000372）
 
-完成第一关的`func_hand.ll`、`if_hand.ll`、`while_hand.ll`和思考题。
+贡献包括：第一关的`func_hand.ll`、`if_hand.ll`、`while_hand.ll`、思考题及第三关的部分代码（20%）。
 
 ## 评定结果
 
 | 组员姓名  | 贡献百分比 |
 | :-----: | :-------: |
-|  曹奕阳  |    xx%    |
-|  薛东昀  |    xx%    |
-|   孙杰   |    xx%    |
+|  曹奕阳  |    40%    |
+|  薛东昀  |    35%    |
+|   孙杰   |    25%    |
